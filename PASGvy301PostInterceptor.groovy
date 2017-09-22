@@ -117,6 +117,7 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
       EdiOperator ediOp = bkgTrans.getLineOperator();
       Facility facility = ContextHelper.getThreadFacility();
       Complex complex = ContextHelper.getThreadComplex();
+      updateOwnerAndOpr(bkgtransArray[0], book);
       EdiVesselVisit EdiVv = bkgTrans.getEdiVesselVisit();
       ScopedBizUnit bkgLineOp = this.resolveLineOperator(EdiVv, ediOp);
       CarrierVisit ediCv = this.resolveCarrierVisit(EdiVv, complex, facility, bkgLineOp);
@@ -155,7 +156,7 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
     //log("msgFunctionCode= " + msgFunctionCode);
     //Don't call update methods if EDI message funciton is "D" - deletion
     if (book != null && !StringUtils.equalsIgnoreCase(msgFunctionCode, "D")) {
-      updateOwnerAndOpr(bkgtransArray[0], book);
+      //updateOwnerAndOpr(bkgtransArray[0], book);
       updateBookinItemsTailTemperature(book, inParams);
       updateBookingItemsTempRequiredField(book, bkgTrans);
     }
@@ -163,7 +164,7 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
   }
 
   /**
-   * 
+   *
    * @param inBooking
    * @param inBkgTrans
    */
@@ -178,13 +179,13 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
     if (bkgitemArray == null) {
       return;
     }
-    
+
     for (int count = 0; count < bkgitemArray.length; count++) {
       String eqIso = bkgitemArray[count].getISOcode();
       if (StringUtils.isBlank(eqIso)) {
         continue;
       }
-      
+
       EquipType eqType = EquipType.findEquipType(eqIso);
       if (eqType == null) {
         continue;
@@ -203,7 +204,7 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
       if (eqoi == null) {
         continue;
       }
-      
+
       Double bkgTempC = eqoi.getEqoiTempRequired();
       if (bkgTempC == null) {
         continue;
@@ -244,14 +245,14 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
     log("getTempRequiredString - tempRequiredStr= " + tempRequiredStr);
     return tempRequiredStr;
   }
-  
+
   private static Long safeGetQty(String inNumberString) {
    if (NumberUtils.isNumber(inNumberString)) {
       return Math.round(Double.parseDouble(inNumberString));
     }
     return null;
   }
-  
+
   private static EquipmentOrderItem resolveBookingOrderItemBySeqNbr(Booking inBook, Long inSeqNbr) {
     return getOrdersFinder().findEqoItemBySequenceNbr(inBook, inSeqNbr);
   }
@@ -336,7 +337,7 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
     }
     LOGGER.info("Completed Calling updateBookinItemsTailTemperature method.");
   }
-  
+
   /**
    * Update the container owner and opr associated with booking to Vessel Sharing Agreement partner codes.
    * @param inBkgTrans
@@ -375,7 +376,15 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
       //Update Booking Line
       ScopedBizUnit line = LineOperator.resolveScopedBizUnit(partnerCode, null, BizRoleEnum.LINEOP);
       if (line != null) {
-        inBooking.setEqoLine(line);
+        //inBooking.setEqoLine(line);
+        String scac = line.getBzuScac();
+        EdiVesselVisit ediVvd = inBkgTrans.getEdiVesselVisit();
+        if (ediVvd != null) {
+          ShippingLine shippingLine = ediVvd.getShippingLine();
+          if (shippingLine != null) {
+            shippingLine.setShippingLineCode(scac);
+          }
+        }
       }
       LOGGER.info("PASGvy301PostInterceptor, completed calling PashaUpdateOwnerAndOprLibrary for the Booking:" + inBooking.getEqboNbr());
     }
