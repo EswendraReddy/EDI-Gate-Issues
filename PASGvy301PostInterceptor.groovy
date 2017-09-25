@@ -157,6 +157,7 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
     //Don't call update methods if EDI message funciton is "D" - deletion
     if (book != null && !StringUtils.equalsIgnoreCase(msgFunctionCode, "D")) {
       //updateOwnerAndOpr(bkgtransArray[0], book);
+      updateUnitOwnerOprAndLine(bkgtransArray[0], book);
       updateBookinItemsTailTemperature(book, inParams);
       updateBookingItemsTempRequiredField(book, bkgTrans);
     }
@@ -351,6 +352,30 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
       return;
     }
     String partnerCode = flexStringFields.getFlexString07();
+      //Update Booking Line
+      ScopedBizUnit line = LineOperator.resolveScopedBizUnit(partnerCode, null, BizRoleEnum.LINEOP);
+      if (line != null) {
+        String scac = line.getBzuScac();
+        EdiVesselVisit ediVvd = inBkgTrans.getEdiVesselVisit();
+        if (ediVvd != null) {
+          ShippingLine shippingLine = ediVvd.getShippingLine();
+          if (shippingLine != null) {
+            shippingLine.setShippingLineCode(scac);
+          }
+        }
+      }
+      LOGGER.info("PASGvy301PostInterceptor, completed calling PashaUpdateOwnerAndOprLibrary for the Booking:" + inBooking.getEqboNbr());
+  }
+
+  private void updateUnitOwnerOprAndLine(BookingTransaction inBkgTrans, Booking inBooking) {
+    FlexStringFields flexStringFields = inBkgTrans.getFlexStringFields();
+    if (flexStringFields == null || flexStringFields.getFlexString07() == null) {
+      LOGGER.info("Booking: " + inBooking.getEqboNbr() +
+              " has no Vessel Sharing Code in EDI file, hence the conatiners Opr and Owner associated with this booking are not updated to Vessel Sharing Code.");
+      return;
+    }
+    String partnerCode = flexStringFields.getFlexString07();
+
     def pashaUpdateOwnerAndOprLibrary = getLibrary("PashaUpdateOwnerAndOprLibrary");
     if (pashaUpdateOwnerAndOprLibrary == null) {
       LOGGER.error(" PASGvy301PostInterceptor, Couldn't find the groovy PashaUpdateOwnerAndOprLibrary.");
@@ -373,20 +398,6 @@ public class PASGvy301PostInterceptor extends AbstractEdiPostInterceptor {
       LOGGER.info("PASGvy301PostInterceptor, about to execute PashaUpdateOwnerAndOprLibrary for the Booking:" + inBooking.getEqboNbr());
       List<Unit> unitList = getUnitFinder().findUnitsAdvisedOrReceivedForOrder(inBooking);
       pashaUpdateOwnerAndOprLibrary.updateLine(unitList, partnerCode);
-      //Update Booking Line
-      ScopedBizUnit line = LineOperator.resolveScopedBizUnit(partnerCode, null, BizRoleEnum.LINEOP);
-      if (line != null) {
-        //inBooking.setEqoLine(line);
-        String scac = line.getBzuScac();
-        EdiVesselVisit ediVvd = inBkgTrans.getEdiVesselVisit();
-        if (ediVvd != null) {
-          ShippingLine shippingLine = ediVvd.getShippingLine();
-          if (shippingLine != null) {
-            shippingLine.setShippingLineCode(scac);
-          }
-        }
-      }
-      LOGGER.info("PASGvy301PostInterceptor, completed calling PashaUpdateOwnerAndOprLibrary for the Booking:" + inBooking.getEqboNbr());
     }
   }
 
